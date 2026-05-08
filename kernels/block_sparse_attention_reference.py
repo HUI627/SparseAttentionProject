@@ -61,8 +61,8 @@ def prune_csr_by_block_score(q: torch.Tensor, k: torch.Tensor, csr: CSRMask, top
     row_ptr = csr.row_ptr.cpu().tolist(); cols = csr.col_ind.cpu().tolist()
     scale = 1.0 / math.sqrt(q.shape[-1])
 
-    # Precompute norms for 'norm' method
-    if method == "norm":
+    # Precompute norms for 'norm' and 'adaptive' methods
+    if method in ("norm", "adaptive"):
         q_norm = q.float().norm(dim=-1).amax(dim=(0, 1))  # [S]
         k_norm = k.float().norm(dim=-1).amax(dim=(0, 1))  # [S]
 
@@ -77,8 +77,9 @@ def prune_csr_by_block_score(q: torch.Tensor, k: torch.Tensor, csr: CSRMask, top
             k0, k1 = kb * bs, min(k.shape[-2], (kb + 1) * bs)
             k_block = k[:, :, k0:k1, :]  # [B, H, block_len, D]
 
-            if method == "norm":
+            if method == "norm" or method == "adaptive":
                 # Fast: ||Q||_max * ||K||_max upper bound
+                # (adaptive uses norm scoring + adaptive selection)
                 q_score = q_norm[q0:q1].max().item()
                 k_score = k_norm[k0:k1].max().item()
                 score = q_score * k_score
